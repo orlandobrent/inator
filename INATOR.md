@@ -92,8 +92,10 @@ The `PROJECT_NAME` var in Taskfile.yml MUST match the service directory name.
 
 ## SCM
 
-- Each inator maintains its own git repository.
-- This root `inator/` directory is NOT itself a git repo — it's a workspace.
+- The `inator/` platform repo is the parent git repository.
+- Each inator backend is a **git submodule** inside it (its own independent GitHub repo).
+- Clone everything with: `git clone --recurse-submodules https://github.com/losomode/inator.git`
+- Update all submodules after pulling: `git submodule update --init --recursive`
 - Conventional Commits: `type(scope): description`
   - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `revert`
 

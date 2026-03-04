@@ -1,11 +1,3 @@
-# ────────────────────────────────────────────────────
-# Child inator repositories
-# Each inator is its own GitHub repo — excluded here.
-# Add new inators to this list as they're created.
-# ────────────────────────────────────────────────────
-Authinator/
-RMAinator/
-Fulfilinator/
 
 # Deft framework (shared local dev tooling)
 deft/

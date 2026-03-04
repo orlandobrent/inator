@@ -1,0 +1,79 @@
+name: inator-dev
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Caddyfile.docker:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks: [inator-net]
+    depends_on: [authinator, rmainator, fulfilinator, frontend]
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    networks: [inator-net]
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+
+  authinator:
+    build:
+      context: ./Authinator
+      target: dev
+    command: sh -c "python backend/manage.py migrate --noinput && python backend/manage.py runserver 0.0.0.0:8001"
+    env_file: ./Authinator/backend/.env
+    volumes:
+      - ./Authinator/backend:/app/backend
+      - authinator_data:/app/backend/data
+    environment:
+      - SQLITE_PATH=/app/backend/data/db.sqlite3
+    networks: [inator-net]
+
+  rmainator:
+    build:
+      context: ./RMAinator
+      target: dev
+    command: sh -c "python backend/manage.py migrate --noinput && python backend/manage.py runserver 0.0.0.0:8002"
+    env_file: ./RMAinator/backend/.env
+    volumes:
+      - ./RMAinator/backend:/app/backend
+      - rmainator_data:/app/backend/data
+    environment:
+      - SQLITE_PATH=/app/backend/data/db.sqlite3
+      - AUTHINATOR_API_URL=http://authinator:8001/api/auth/
+      - SERVICE_REGISTRY_URL=http://authinator:8001/api/services/register/
+    depends_on: [authinator]
+    networks: [inator-net]
+
+  fulfilinator:
+    build:
+      context: ./Fulfilinator
+      target: dev
+    command: sh -c "python backend/manage.py migrate --noinput && python backend/manage.py runserver 0.0.0.0:8003"
+    env_file: ./Fulfilinator/backend/.env
+    volumes:
+      - ./Fulfilinator/backend:/app/backend
+      - fulfilinator_data:/app/backend/data
+    environment:
+      - SQLITE_PATH=/app/backend/data/db.sqlite3
+      - AUTHINATOR_API_URL=http://authinator:8001/api/auth/
+      - SERVICE_REGISTRY_URL=http://authinator:8001/api/services/register/
+    depends_on: [authinator]
+    networks: [inator-net]
+
+volumes:
+  caddy_data:
+  frontend_node_modules:
+  authinator_data:
+  rmainator_data:
+  fulfilinator_data:
+
+networks:
+  inator-net:
+    driver: bridge

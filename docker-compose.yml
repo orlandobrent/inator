@@ -1,0 +1,68 @@
+name: inator
+
+services:
+  caddy:
+    build:
+      context: .
+      dockerfile: Caddyfile.prod.Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [inator-net]
+    depends_on: [authinator, rmainator, fulfilinator]
+
+  authinator:
+    build:
+      context: ./Authinator
+      target: prod
+    command: sh -c "python backend/manage.py migrate --noinput && gunicorn config.wsgi:application --chdir backend --bind 0.0.0.0:8001 --workers 4"
+    env_file: ./Authinator/backend/.env.prod
+    volumes:
+      - authinator_data:/app/backend/data
+    environment:
+      - SQLITE_PATH=/app/backend/data/db.sqlite3
+    networks: [inator-net]
+
+  rmainator:
+    build:
+      context: ./RMAinator
+      target: prod
+    command: sh -c "python backend/manage.py migrate --noinput && gunicorn config.wsgi:application --chdir backend --bind 0.0.0.0:8002 --workers 4"
+    env_file: ./RMAinator/backend/.env.prod
+    volumes:
+      - rmainator_data:/app/backend/data
+    environment:
+      - SQLITE_PATH=/app/backend/data/db.sqlite3
+      - AUTHINATOR_API_URL=http://authinator:8001/api/auth/
+      - SERVICE_REGISTRY_URL=http://authinator:8001/api/services/register/
+    depends_on: [authinator]
+    networks: [inator-net]
+
+  fulfilinator:
+    build:
+      context: ./Fulfilinator
+      target: prod
+    command: sh -c "python backend/manage.py migrate --noinput && gunicorn config.wsgi:application --chdir backend --bind 0.0.0.0:8003 --workers 4"
+    env_file: ./Fulfilinator/backend/.env.prod
+    volumes:
+      - fulfilinator_data:/app/backend/data
+    environment:
+      - SQLITE_PATH=/app/backend/data/db.sqlite3
+      - AUTHINATOR_API_URL=http://authinator:8001/api/auth/
+      - SERVICE_REGISTRY_URL=http://authinator:8001/api/services/register/
+    depends_on: [authinator]
+    networks: [inator-net]
+
+volumes:
+  caddy_data:
+  caddy_config:
+  authinator_data:
+  rmainator_data:
+  fulfilinator_data:
+
+networks:
+  inator-net:
+    driver: bridge

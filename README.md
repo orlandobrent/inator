@@ -94,19 +94,19 @@ Authinator owns the role definitions. Every other inator reads the role from the
 ### Prerequisites
 - [Task](https://taskfile.dev/) — `brew install go-task`
 - [Caddy](https://caddyserver.com/) — `brew install caddy`
-- Python 3.11+
+- Python 3.12+
 - Node.js 18+
 - Git (configured for SSH)
 
 ### Installation
 
 ```bash
-# 1. Clone the platform and all inators
-git clone git@github.com:losomode/inator.git
+# 1. Clone the platform and all service repos in one step
+git clone --recurse-submodules https://github.com/losomode/inator.git
 cd inator
-git clone git@github.com:losomode/AUTHinator.git Authinator
-git clone git@github.com:losomode/RMAinator.git RMAinator
-git clone git@github.com:losomode/FULFILinator.git Fulfilinator
+
+# If you already cloned without --recurse-submodules:
+git submodule update --init --recursive
 
 # 2. Run first-time setup (installs deps, creates .env, migrates, creates admin)
 task setup
@@ -147,6 +147,76 @@ tail -50 logs/gateway.log
 task stop:all           # Stop everything
 task setup              # Re-run setup
 task start:all          # Start again
+```
+
+### Docker Quick Start
+
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose plugin).
+
+```bash
+# 1. Clone with submodules
+git clone --recurse-submodules https://github.com/losomode/inator.git
+cd inator
+
+# 2. Copy .env files for each service
+cp Authinator/backend/.env.example Authinator/backend/.env
+cp RMAinator/backend/.env.example RMAinator/backend/.env
+cp Fulfilinator/backend/.env.example Fulfilinator/backend/.env
+# Edit each .env to set SECRET_KEY (required)
+
+# 3. Build and start all containers (migrations run automatically on startup)
+task docker:up --build    # or: docker compose -f docker-compose.dev.yml up --build
+
+# 4. First run only: create an admin user
+docker compose -f docker-compose.dev.yml exec authinator python backend/manage.py createsuperuser
+```
+
+**Access the platform:** http://localhost:8080 — same URL as native dev.
+
+SQLite data is persisted in named Docker volumes (`authinator_data`, `rmainator_data`, `fulfilinator_data`) and survives container restarts.
+
+Useful commands:
+
+```bash
+task docker:logs          # Tail all container logs
+task docker:down          # Stop and remove containers
+task docker:migrate       # Re-run migrations (after model changes)
+task docker:status        # Show container status
+```
+
+### Docker Production Deployment
+
+Requires a server with Docker, a domain pointing at it, and ports 80/443 open.
+
+```bash
+# 1. Create production .env files
+cp Authinator/backend/.env.prod.example Authinator/backend/.env.prod
+cp RMAinator/backend/.env.prod.example RMAinator/backend/.env.prod
+cp Fulfilinator/backend/.env.prod.example Fulfilinator/backend/.env.prod
+# Edit each .env.prod: set SECRET_KEY, ALLOWED_HOSTS, SMTP, etc.
+
+# 2. Set your domain and TLS email (used by Caddy for auto-TLS via Let's Encrypt)
+export DEPLOY_DOMAIN=yourapp.com
+export CADDY_ACME_EMAIL=you@yourapp.com
+
+# 3. Build all images (backends at prod target, Caddy with frontend baked in)
+task docker:prod:build
+
+# 4. Start the production stack
+task docker:prod:up
+```
+
+**What’s different from dev:**
+- Backends run **gunicorn** (4 workers) instead of Django’s dev server
+- The **React frontend is compiled and baked into the Caddy image** — no separate frontend container
+- **TLS is automatic** — Caddy obtains a Let’s Encrypt certificate on first startup
+- No source code bind-mounts — code is baked into the images
+
+Useful commands:
+```bash
+task docker:prod:logs     # Tail production logs
+task docker:prod:down     # Stop the production stack
+task docker:prod:migrate  # Force-run migrations (normally auto on startup)
 ```
 
 ### Demo Database
@@ -200,7 +270,7 @@ task setup:demodb         # Build demo databases with sample data
 task demodb:activate      # Swap to demo data (backs up active DBs)
 task demodb:deactivate    # Restore original databases
 
-# Start/Stop/Restart
+# Start/Stop/Restart (native)
 task start:all            # Start all backends + unified frontend + Caddy gateway
 task stop:all             # Stop all services
 task restart:all          # Restart all services
@@ -217,6 +287,21 @@ task frontend:stop        # Stop unified frontend
 task start:rmainator      # Start just RMAinator (backend only)
 task stop:fulfilinator    # Stop just Fulfilinator
 task restart:authinator   # Restart just Authinator
+
+# Docker (dev)
+task docker:up            # Start all services in Docker (detached)
+task docker:down          # Stop and remove containers
+task docker:logs          # Tail container logs
+task docker:migrate       # Run migrations in all backend containers
+task docker:status        # Show container status
+task docker:build         # Rebuild images without starting
+
+# Docker (prod)
+task docker:prod:build    # Build production images (gunicorn + frontend baked into Caddy)
+task docker:prod:up       # Start production stack
+task docker:prod:down     # Stop production stack
+task docker:prod:migrate  # Run production migrations
+task docker:prod:logs     # Tail production logs
 ```
 
 ### Per-Inator Tasks
@@ -250,7 +335,7 @@ See [INATOR.md](./INATOR.md) for the full standards and conventions.
 | Layer | Technology |
 |-------|-----------|
 | Gateway | Caddy 2.x (reverse proxy) |
-| Backend | Python 3.11+, Django 6.x, Django REST Framework |
+| Backend | Python 3.12+, Django 6.x, Django REST Framework |
 | Frontend | TypeScript (strict), React 19, Vite, Tailwind CSS |
 | Auth | JWT (simplejwt), Google SSO, WebAuthn/passkeys |
 | Testing | pytest + coverage (backend), Vitest (frontend) |
@@ -262,15 +347,21 @@ See [INATOR.md](./INATOR.md) for the full standards and conventions.
 This repo (`inator`) is the **platform hub** — it contains the unified frontend, gateway config, and orchestration. Each inator backend lives in its own repository and is cloned into this workspace.
 
 ```
-inator/                  ← You are here (platform repo)
-├── Authinator/          ← git@github.com:losomode/AUTHinator.git
-├── RMAinator/           ← git@github.com:losomode/RMAinator.git
-├── Fulfilinator/        ← git@github.com:losomode/FULFILinator.git
-├── frontend/            ← Unified React SPA (all inator UIs)
-├── Caddyfile.dev        ← Dev gateway config (routes :8080)
-├── Taskfile.yml         ← Platform-level task runner
-├── INATOR.md            ← Standards & conventions
-└── README.md            ← This file
+inator/                   ← You are here (platform repo)
+├── Authinator/           ← git submodule: github.com/losomode/AUTHinator
+├── RMAinator/            ← git submodule: github.com/losomode/RMAinator
+├── Fulfilinator/         ← git submodule: github.com/losomode/FULFILinator
+├── frontend/             ← Unified React SPA (all inator UIs)
+│   └── Dockerfile        ← Frontend dev container (Vite)
+├── Caddyfile.dev         ← Native dev gateway (uses localhost ports)
+├── Caddyfile.docker      ← Docker dev gateway (uses service names)
+├── Caddyfile.prod        ← Production gateway (auto-TLS)
+├── docker-compose.dev.yml← Docker dev stack
+├── docker-compose.yml    ← Docker production stack
+├── Taskfile.yml          ← Platform-level task runner
+├── docs/                 ← Platform documentation
+├── INATOR.md             ← Standards & conventions
+└── README.md             ← This file
 ```
 
 ## License

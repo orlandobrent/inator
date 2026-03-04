@@ -1,0 +1,38 @@
+# Inator Platform — Docker Gateway Config
+# Used by docker-compose.dev.yml (Caddy runs inside Docker network).
+# Backend hostnames are Docker service names, not localhost.
+# For native dev (non-Docker), use Caddyfile.dev instead.
+
+:8080 {
+	# Authinator backend
+	handle /api/auth/* {
+		reverse_proxy authinator:8001
+	}
+	handle /api/users/* {
+		reverse_proxy authinator:8001
+	}
+	handle /api/services/* {
+		reverse_proxy authinator:8001
+	}
+	handle /accounts/* {
+		reverse_proxy authinator:8001
+	}
+	handle /admin/* {
+		reverse_proxy authinator:8001
+	}
+
+	# RMAinator backend
+	handle /api/rma/* {
+		reverse_proxy rmainator:8002
+	}
+
+	# Fulfilinator backend
+	handle /api/fulfil/* {
+		reverse_proxy fulfilinator:8003
+	}
+
+	# Everything else → Vite dev server (unified frontend)
+	handle {
+		reverse_proxy frontend:5173
+	}
+}

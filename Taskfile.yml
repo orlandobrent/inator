@@ -471,3 +471,64 @@ tasks:
     desc: Tail all inator logs
     cmds:
       - tail -f {{.LOG_DIR}}/*.log
+
+  # ─── Docker ──────────────────────────────────────────
+
+  docker:build:
+    desc: Build all Docker images (dev targets)
+    cmds:
+      - docker compose -f docker-compose.dev.yml build
+
+  docker:up:
+    desc: Start all services in Docker (dev mode, detached)
+    cmds:
+      - docker compose -f docker-compose.dev.yml up -d
+
+  docker:down:
+    desc: Stop and remove Docker containers (dev)
+    cmds:
+      - docker compose -f docker-compose.dev.yml down
+
+  docker:logs:
+    desc: Tail logs from all Docker containers (dev)
+    cmds:
+      - docker compose -f docker-compose.dev.yml logs -f
+
+  docker:migrate:
+    desc: Run migrations in all backend containers (dev)
+    cmds:
+      - docker compose -f docker-compose.dev.yml exec authinator python backend/manage.py migrate
+      - docker compose -f docker-compose.dev.yml exec rmainator python backend/manage.py migrate
+      - docker compose -f docker-compose.dev.yml exec fulfilinator python backend/manage.py migrate
+
+  docker:status:
+    desc: Show status of all Docker containers (dev)
+    cmds:
+      - docker compose -f docker-compose.dev.yml ps
+
+  docker:prod:build:
+    desc: Build production Docker images
+    cmds:
+      - docker compose build
+
+  docker:prod:up:
+    desc: Start production stack (detached)
+    cmds:
+      - docker compose up -d
+
+  docker:prod:down:
+    desc: Stop production stack
+    cmds:
+      - docker compose down
+
+  docker:prod:migrate:
+    desc: Run migrations in all production backend containers
+    cmds:
+      - docker compose exec authinator python backend/manage.py migrate
+      - docker compose exec rmainator python backend/manage.py migrate
+      - docker compose exec fulfilinator python backend/manage.py migrate
+
+  docker:prod:logs:
+    desc: Tail logs from all production containers
+    cmds:
+      - docker compose logs -f

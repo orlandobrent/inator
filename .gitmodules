@@ -1,0 +1,9 @@
+[submodule "Authinator"]
+	path = Authinator
+	url = https://github.com/orlandobrent/AUTHinator.git
+[submodule "RMAinator"]
+	path = RMAinator
+	url = https://github.com/orlandobrent/RMAinator.git
+[submodule "Fulfilinator"]
+	path = Fulfilinator
+	url = https://github.com/orlandobrent/FULFILinator.git

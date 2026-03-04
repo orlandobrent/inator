@@ -1,0 +1,44 @@
+# Inator Platform — Production Gateway Config
+# Used by docker-compose.yml via Caddyfile.prod.Dockerfile.
+# Caddy handles TLS automatically via ACME (Let's Encrypt).
+# Set DEPLOY_DOMAIN and CADDY_ACME_EMAIL env vars before deploying.
+
+{
+	email {$CADDY_ACME_EMAIL}
+}
+
+{$DEPLOY_DOMAIN} {
+	# Authinator backend
+	handle /api/auth/* {
+		reverse_proxy authinator:8001
+	}
+	handle /api/users/* {
+		reverse_proxy authinator:8001
+	}
+	handle /api/services/* {
+		reverse_proxy authinator:8001
+	}
+	handle /accounts/* {
+		reverse_proxy authinator:8001
+	}
+	handle /admin/* {
+		reverse_proxy authinator:8001
+	}
+
+	# RMAinator backend
+	handle /api/rma/* {
+		reverse_proxy rmainator:8002
+	}
+
+	# Fulfilinator backend
+	handle /api/fulfil/* {
+		reverse_proxy fulfilinator:8003
+	}
+
+	# Frontend — static files built into this image
+	handle {
+		root * /srv/www
+		try_files {path} /index.html
+		file_server
+	}
+}
